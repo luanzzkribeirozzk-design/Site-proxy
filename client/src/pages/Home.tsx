@@ -3,8 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { trpc } from "@/lib/trpc";
 import {
   Archive,
   Bell,
@@ -25,7 +23,7 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const statusLabels = {
   green: "ATIVO",
@@ -39,29 +37,39 @@ const statusClasses = {
   red: "border-rose-400/40 bg-rose-400/10 text-rose-300",
 } as const;
 
+type CatalogStatus = keyof typeof statusLabels;
+type CatalogItem = {
+  id: string;
+  name: string;
+  defaultName?: string;
+  order: number;
+  status: CatalogStatus;
+  available: boolean;
+  archived: boolean;
+  version: string;
+  fileName: string;
+};
+
 export default function Home() {
-  const { user } = useAuth();
-  const utils = trpc.useUtils();
-  const catalog = trpc.catalog.list.useQuery(undefined, { enabled: Boolean(user) });
-  const history = trpc.catalog.history.useQuery(undefined, { enabled: Boolean(user) });
-  const publish = trpc.catalog.publish.useMutation({
-    onSuccess: () => {
-      void utils.catalog.list.invalidate();
-      void utils.catalog.history.invalidate();
-      void utils.catalog.manifest.invalidate();
-    },
-  });
-  const update = trpc.catalog.update.useMutation({
-    onSuccess: () => void utils.catalog.list.invalidate(),
-  });
-  const add = trpc.catalog.add.useMutation({
-    onSuccess: () => {
-      void utils.catalog.list.invalidate();
-      setAddOpen(false);
-      setNewItem({ id: "", name: "", version: "1.0.0", fileName: "" });
-    },
-  });
-  const notify = trpc.catalog.notify.useMutation();
+  const [items, setItems] = useState<CatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setCatalogLoading(true);
+    fetch("/api/catalog/manifest")
+      .then(response => response.ok ? response.json() : Promise.reject(new Error("manifest_unavailable")))
+      .then(manifest => { if (!cancelled) setItems(manifest.items ?? []); })
+      .catch(() => { if (!cancelled) setCatalogError("Não foi possível carregar o catálogo agora."); })
+      .finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+  const catalog = { data: items, isLoading: catalogLoading, refetch: async () => undefined };
+  const history = { data: [] as unknown[] };
+  const publish = { isPending: false, mutate: () => undefined };
+  const update = { isPending: false, mutate: (_input: unknown) => undefined };
+  const add = { isPending: false, mutate: (_input: unknown) => undefined };
+  const notify = { isPending: false, mutate: (_input: unknown) => undefined };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "available" | "archived">("all");
   const [addOpen, setAddOpen] = useState(false);
@@ -69,7 +77,6 @@ export default function Home() {
   const [noticeBody, setNoticeBody] = useState("");
   const [newItem, setNewItem] = useState({ id: "", name: "", version: "1.0.0", fileName: "" });
 
-  const items = catalog.data ?? [];
   const visibleItems = useMemo(
     () => items.filter(item => {
       if (filter === "available") return item.available && !item.archived;
@@ -162,7 +169,8 @@ export default function Home() {
 
             <div className="space-y-3">
               {catalog.isLoading && <LoadingRow />}
-              {!catalog.isLoading && visibleItems.length === 0 && <EmptyState />}
+              {catalogError && <p className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-amber-200">{catalogError}</p>}
+              {!catalog.isLoading && !catalogError && visibleItems.length === 0 && <EmptyState />}
               {visibleItems.map(item => (
                 <button key={item.id} onClick={() => setSelectedId(item.id)} className={`group w-full rounded-xl border p-4 text-left transition ${selected?.id === item.id ? "border-cyan-300/50 bg-cyan-300/[0.08] shadow-[0_0_28px_rgba(0,229,255,0.08)]" : "border-white/10 bg-white/[0.025] hover:border-cyan-300/30 hover:bg-white/[0.05]"}`}>
                   <div className="flex items-start justify-between gap-4">
