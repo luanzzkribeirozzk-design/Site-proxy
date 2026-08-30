@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
       const errorKind = classifyManifestError(error);
       console.error("[Catalog] Manifest read failed", errorKind);
-      if (req.query?.diagnostic === "1") {
+      if (req.query?.diagnostic === "1" || url.includes("diagnostic=1")) {
         return res.status(503).json({ error: "manifest_unavailable", errorKind });
       }
       return res.status(503).json({ error: "manifest_unavailable" });
