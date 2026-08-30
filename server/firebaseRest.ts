@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { createHash, createSign } from "node:crypto";
 
 export type RestCatalogItem = {
   id: string;
@@ -160,7 +160,6 @@ export async function getRestManifest(): Promise<RestManifest> {
       updatedAt: Number(notification.updatedAt ?? 0),
     } : null,
   };
-  const { createHash } = await import("node:crypto");
   return { ...unsigned, contentHash: createHash("sha256").update(JSON.stringify(unsigned)).digest("hex") };
 }
 
