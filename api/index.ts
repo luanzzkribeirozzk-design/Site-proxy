@@ -17,11 +17,16 @@ function getServiceAccountConfigStatus() {
 
 function classifyManifestError(error: unknown): string {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
-  if (message.includes("not configured")) return "credential_missing";
-  if (message.includes("not valid json") || message.includes("unexpected token") || message.includes("json")) return "credential_invalid_json";
-  if (message.includes("incomplete") || message.includes("private key")) return "credential_invalid";
-  if (message.includes("permission") || message.includes("unauthenticated") || message.includes("forbidden")) return "firestore_permission";
-  if (message.includes("timeout") || message.includes("econn") || message.includes("network")) return "firestore_network";
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code).toLowerCase()
+    : "";
+  const signal = `${code} ${message}`;
+  if (signal.includes("not configured")) return "credential_missing";
+  if (signal.includes("not valid json") || signal.includes("unexpected token") || signal.includes("json") || signal.includes("invalid-credential")) return "credential_invalid_json";
+  if (signal.includes("incomplete") || signal.includes("private key") || signal.includes("invalid-credential")) return "credential_invalid";
+  if (signal.includes("permission") || signal.includes("unauthenticated") || signal.includes("forbidden") || signal.includes("permission-denied") || signal.includes("7")) return "firestore_permission";
+  if (signal.includes("timeout") || signal.includes("econn") || signal.includes("network") || signal.includes("unavailable") || signal.includes("14")) return "firestore_network";
+  if (signal.includes("not-found") || signal.includes("not found") || signal.includes(" 5")) return "firestore_database_missing";
   return "firestore_request_failed";
 }
 
