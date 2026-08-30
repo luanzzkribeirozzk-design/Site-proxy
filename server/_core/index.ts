@@ -37,6 +37,13 @@ export async function createApp() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      ok: true,
+      runtime: process.env.VERCEL ? "vercel" : "local",
+      firebaseAdminConfigured: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
+    });
+  });
   app.get("/api/catalog/manifest", async (_req, res) => {
     try {
       res.json(await getManifest());
