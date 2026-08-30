@@ -67,22 +67,42 @@ export default function Home() {
       window.alert("Chave inválida.");
     }
   }
-  useEffect(() => {
-    let cancelled = false;
+  async function loadCatalog() {
     setCatalogLoading(true);
-    fetch("/api/catalog/manifest")
-      .then(response => response.ok ? response.json() : Promise.reject(new Error("manifest_unavailable")))
-      .then(manifest => { if (!cancelled) setItems(manifest.items ?? []); })
-      .catch(() => { if (!cancelled) setCatalogError("Não foi possível carregar o catálogo agora."); })
-      .finally(() => { if (!cancelled) setCatalogLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
-  const catalog = { data: items, isLoading: catalogLoading, refetch: async () => undefined };
+    try {
+      const response = await fetch("/api/catalog/manifest");
+      if (!response.ok) throw new Error("manifest_unavailable");
+      const manifest = await response.json() as { items?: CatalogItem[] };
+      setItems(manifest.items ?? []);
+      setCatalogError(null);
+    } catch {
+      setCatalogError("Não foi possível carregar o catálogo agora.");
+    } finally {
+      setCatalogLoading(false);
+    }
+  }
+  async function ownerRequest(path: string, body: unknown) {
+    if (!ownerUnlocked) {
+      await unlockOwnerMode();
+      return false;
+    }
+    const response = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    if (response.status === 403) {
+      sessionStorage.removeItem("owner-panel-unlocked");
+      setOwnerUnlocked(false);
+      window.alert("Sessão do proprietário expirada.");
+      return false;
+    }
+    if (!response.ok) throw new Error("owner_request_failed");
+    return true;
+  }
+  useEffect(() => { void loadCatalog(); }, []);
+  const catalog = { data: items, isLoading: catalogLoading, refetch: loadCatalog };
   const history = { data: [] as unknown[] };
-  const publish = { isPending: false, mutate: () => undefined };
-  const update = { isPending: false, mutate: (_input: unknown) => undefined };
-  const add = { isPending: false, mutate: (_input: unknown) => undefined };
-  const notify = { isPending: false, mutate: (_input: unknown) => undefined };
+  const publish = { isPending: false, mutate: () => void ownerRequest("/api/catalog/publish", {}) };
+  const update = { isPending: false, mutate: (input: unknown) => void ownerRequest("/api/catalog/update", input) };
+  const add = { isPending: false, mutate: (input: unknown) => void ownerRequest("/api/catalog/add", input).then(() => { setAddOpen(false); void loadCatalog(); }) };
+  const notify = { isPending: false, mutate: (input: unknown) => void ownerRequest("/api/catalog/notify", input) };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "available" | "archived">("all");
   const [addOpen, setAddOpen] = useState(false);
@@ -108,11 +128,13 @@ export default function Home() {
     update.mutate({
       id: selected.id,
       name: selected.name,
+      defaultName: selected.defaultName ?? selected.name,
       status: selected.status,
       available: selected.available,
       archived: selected.archived,
       order: selected.order,
       version: selected.version,
+      fileName: selected.fileName,
     });
   }
 
@@ -121,7 +143,7 @@ export default function Home() {
     const next = { ...selected, ...patch };
     setSelectedId(next.id);
     const index = items.findIndex(item => item.id === next.id);
-    if (index >= 0 && catalog.data) catalog.data[index] = next;
+    if (index >= 0) setItems(previous => previous.map(item => item.id === next.id ? next : item));
   }
 
   return (
