@@ -1,5 +1,6 @@
 import { getFirebaseFirestore } from "./firebaseAdmin";
 import type { DocumentData } from "firebase-admin/firestore";
+import { createHash } from "node:crypto";
 
 export type CatalogStatus = "green" | "yellow" | "red";
 
@@ -29,12 +30,23 @@ export type CatalogManifest = {
   publishedAt: number | null;
   items: CatalogItem[];
   notification: CatalogNotification | null;
+  contentHash: string;
 };
 
 const ITEMS = "catalogItems";
 const META = "catalogMeta";
 const CURRENT = "current";
 const HISTORY = "catalogHistory";
+
+type UnsignedManifest = Omit<CatalogManifest, "contentHash">;
+
+export function computeManifestHash(manifest: UnsignedManifest): string {
+  return createHash("sha256").update(JSON.stringify(manifest)).digest("hex");
+}
+
+function withIntegrity(manifest: UnsignedManifest): CatalogManifest {
+  return { ...manifest, contentHash: computeManifestHash(manifest) };
+}
 
 const initialItems: Omit<CatalogItem, "createdAt" | "updatedAt">[] = Array.from(
   { length: 6 },
@@ -101,7 +113,7 @@ export async function getManifest(): Promise<CatalogManifest> {
     getFirebaseFirestore().collection(META).doc(CURRENT).get(),
   ]);
   const meta = metaSnapshot.exists ? metaSnapshot.data() : undefined;
-  return {
+  return withIntegrity({
     schemaVersion: 1,
     catalogVersion: Number(meta?.catalogVersion ?? 0),
     publishedAt: meta?.publishedAt ? Number(meta.publishedAt) : null,
@@ -113,7 +125,7 @@ export async function getManifest(): Promise<CatalogManifest> {
           updatedAt: Number(meta.notification.updatedAt ?? 0),
         }
       : null,
-  };
+  });
 }
 
 export async function updateCatalogItem(
@@ -160,7 +172,13 @@ export async function publishCatalog() {
   const nextVersion = previousVersion + 1;
   const now = Date.now();
   const manifest = await getManifest();
-  const next = { ...manifest, catalogVersion: nextVersion, publishedAt: now };
+  const next = withIntegrity({
+    schemaVersion: manifest.schemaVersion,
+    catalogVersion: nextVersion,
+    publishedAt: now,
+    items: manifest.items,
+    notification: manifest.notification,
+  });
 
   await db.collection(META).doc(CURRENT).set(next, { merge: true });
   await db.collection(HISTORY).doc(String(nextVersion)).set(next);

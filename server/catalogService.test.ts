@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getManifest, initialItems } from "./catalogService";
+import { computeManifestHash, getManifest, initialItems } from "./catalogService";
 
 describe("catalog manifest", () => {
   it("defines six distinct initial catalog records", () => {
@@ -15,6 +15,13 @@ describe("catalog manifest", () => {
     expect(manifest.items).toHaveLength(6);
     expect(manifest.items.every(item => item.id && item.name && item.status)).toBe(true);
     expect(manifest.items.every(item => !("privateKey" in item))).toBe(true);
+    expect(computeManifestHash({
+      schemaVersion: manifest.schemaVersion,
+      catalogVersion: manifest.catalogVersion,
+      publishedAt: manifest.publishedAt,
+      items: manifest.items,
+      notification: manifest.notification,
+    })).toBe(manifest.contentHash);
   });
 });
 
