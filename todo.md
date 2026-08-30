@@ -21,3 +21,4 @@
 - [x] Fix Vercel static output so `/` serves the compiled frontend instead of the server bundle
 - [ ] Redeploy the corrected Vercel configuration and verify the public manifest route
 - [ ] Configure `FIREBASE_SERVICE_ACCOUNT_JSON` in Vercel and recheck the manifest route
+- [ ] Fix Vercel function initialization crash and expose health/manifest routes safely
