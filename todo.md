@@ -16,4 +16,7 @@
 - [x] Add Vitest coverage for catalog initialization, status transitions and manifest validation
 - [x] Run tests and visual verification before checkpoint
 - [x] Prepare private GitHub repository and Vercel deployment guide
+- [x] Push the panel snapshot to `luanzzkribeirozzk-design/Site-proxy` main branch
 
+- [ ] Fix Vercel static output so `/` serves the compiled frontend instead of the server bundle
+- [ ] Redeploy the corrected Vercel configuration and verify the public manifest route
