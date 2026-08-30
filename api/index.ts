@@ -50,8 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (url.startsWith("/api/catalog/manifest")) {
     try {
-      const { getManifest } = await import("../server/catalogService");
-      return res.status(200).json(await getManifest());
+      const { getRestManifest } = await import("../server/firebaseRest");
+      return res.status(200).json(await getRestManifest());
     } catch (error) {
       const errorKind = classifyManifestError(error);
       console.error("[Catalog] Manifest read failed", errorKind);
