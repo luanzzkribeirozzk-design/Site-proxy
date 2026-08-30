@@ -1,34 +1,32 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import express from "express";
-const app = express();
-app.use(express.json({ limit: "1mb" }));
-
-app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    runtime: process.env.VERCEL ? "vercel" : "local",
-    firebaseAdminConfigured: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
-  });
-});
-
-app.get("/api/catalog/manifest", async (_req, res) => {
-  try {
-    const { getManifest } = await import("../server/catalogService");
-    res.json(await getManifest());
-  } catch (error) {
-    console.error("[Catalog] Manifest read failed", error);
-    res.status(503).json({ error: "manifest_unavailable" });
-  }
-});
-
-let fullAppPromise: Promise<express.Express> | undefined;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.url?.startsWith("/api/health") || req.url?.startsWith("/api/catalog/manifest")) {
-    return app(req, res);
+  const url = req.url ?? "/";
+
+  if (url.startsWith("/api/health")) {
+    return res.status(200).json({
+      ok: true,
+      runtime: process.env.VERCEL ? "vercel" : "local",
+      firebaseAdminConfigured: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
+    });
   }
 
-  fullAppPromise ??= import("../server/_core/index").then(module => module.createApp());
-  const fullApp = await fullAppPromise;
-  return fullApp(req, res);
+  if (url.startsWith("/api/catalog/manifest")) {
+    try {
+      const { getManifest } = await import("../server/catalogService");
+      return res.status(200).json(await getManifest());
+    } catch (error) {
+      console.error("[Catalog] Manifest read failed", error);
+      return res.status(503).json({ error: "manifest_unavailable" });
+    }
+  }
+
+  try {
+    const { createApp } = await import("../server/_core/index");
+    const app = await createApp();
+    return app(req, res);
+  } catch (error) {
+    console.error("[API] App initialization failed", error);
+    return res.status(500).json({ error: "api_unavailable" });
+  }
 }
