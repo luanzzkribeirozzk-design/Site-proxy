@@ -1,7 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import express from "express";
-import { getManifest } from "../server/catalogService";
-
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
@@ -15,6 +13,7 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/catalog/manifest", async (_req, res) => {
   try {
+    const { getManifest } = await import("../server/catalogService");
     res.json(await getManifest());
   } catch (error) {
     console.error("[Catalog] Manifest read failed", error);
