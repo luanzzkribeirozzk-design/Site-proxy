@@ -15,11 +15,15 @@ function getServiceAccountConfigStatus() {
   }
 }
 
+function getFirebaseErrorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  const code = String((error as { code?: unknown }).code ?? "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+  return code || null;
+}
+
 function classifyManifestError(error: unknown): string {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
-  const code = typeof error === "object" && error !== null && "code" in error
-    ? String((error as { code?: unknown }).code).toLowerCase()
-    : "";
+  const code = getFirebaseErrorCode(error)?.toLowerCase() ?? "";
   const signal = `${code} ${message}`;
   if (signal.includes("not configured")) return "credential_missing";
   if (signal.includes("not valid json") || signal.includes("unexpected token") || signal.includes("json") || signal.includes("invalid-credential")) return "credential_invalid_json";
@@ -52,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const errorKind = classifyManifestError(error);
       console.error("[Catalog] Manifest read failed", errorKind);
       if (req.query?.diagnostic === "1" || url.includes("diagnostic=1")) {
-        return res.status(503).json({ error: "manifest_unavailable", errorKind });
+        return res.status(503).json({ error: "manifest_unavailable", errorKind, firebaseErrorCode: getFirebaseErrorCode(error) });
       }
       return res.status(503).json({ error: "manifest_unavailable" });
     }
