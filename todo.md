@@ -15,4 +15,5 @@
 - [x] Do not implement remote distribution or activation of game modifications
 - [x] Add Vitest coverage for catalog initialization, status transitions and manifest validation
 - [x] Run tests and visual verification before checkpoint
+- [x] Prepare private GitHub repository and Vercel deployment guide
 
