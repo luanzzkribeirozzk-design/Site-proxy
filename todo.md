@@ -22,3 +22,4 @@
 - [ ] Redeploy the corrected Vercel configuration and verify the public manifest route
 - [ ] Configure `FIREBASE_SERVICE_ACCOUNT_JSON` in Vercel and recheck the manifest route
 - [ ] Fix Vercel function initialization crash and expose health/manifest routes safely
+- [ ] Resolve Vercel auth gate so the personal panel does not show the Manus login screen

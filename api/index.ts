@@ -1,9 +1,24 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+function getServiceAccountConfigStatus() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return { configured: false, validJson: false, projectMatches: false };
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      configured: true,
+      validJson: Boolean(parsed.project_id && parsed.client_email && parsed.private_key),
+      projectMatches: parsed.project_id === "proxy-5f82e",
+    };
+  } catch {
+    return { configured: true, validJson: false, projectMatches: false };
+  }
+}
+
 function classifyManifestError(error: unknown): string {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
   if (message.includes("not configured")) return "credential_missing";
-  if (message.includes("not valid json") || message.includes("unexpected token")) return "credential_invalid_json";
+  if (message.includes("not valid json") || message.includes("unexpected token") || message.includes("json")) return "credential_invalid_json";
   if (message.includes("incomplete") || message.includes("private key")) return "credential_invalid";
   if (message.includes("permission") || message.includes("unauthenticated") || message.includes("forbidden")) return "firestore_permission";
   if (message.includes("timeout") || message.includes("econn") || message.includes("network")) return "firestore_network";
@@ -14,10 +29,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const url = req.url ?? "/";
 
   if (url.startsWith("/api/health")) {
+    const serviceAccount = getServiceAccountConfigStatus();
     return res.status(200).json({
       ok: true,
       runtime: process.env.VERCEL ? "vercel" : "local",
-      firebaseAdminConfigured: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
+      firebaseAdminConfigured: serviceAccount.configured,
+      firebaseAdminJsonValid: serviceAccount.validJson,
+      firebaseProjectMatches: serviceAccount.projectMatches,
     });
   }
 
