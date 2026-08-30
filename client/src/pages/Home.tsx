@@ -54,6 +54,19 @@ export default function Home() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [ownerUnlocked, setOwnerUnlocked] = useState(() => sessionStorage.getItem("owner-panel-unlocked") === "1");
+  async function unlockOwnerMode() {
+    const key = window.prompt("Chave do modo proprietário");
+    if (!key) return;
+    const response = await fetch("/api/owner/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key }) });
+    const result = await response.json() as { authorized?: boolean };
+    if (result.authorized) {
+      sessionStorage.setItem("owner-panel-unlocked", "1");
+      setOwnerUnlocked(true);
+    } else {
+      window.alert("Chave inválida.");
+    }
+  }
   useEffect(() => {
     let cancelled = false;
     setCatalogLoading(true);
@@ -129,6 +142,9 @@ export default function Home() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" className={ownerUnlocked ? "border-emerald-300/30 bg-emerald-300/5 text-emerald-200" : "border-fuchsia-300/30 bg-fuchsia-300/5 text-fuchsia-200"} onClick={() => void unlockOwnerMode()}>
+              <ShieldCheck className="mr-2 h-4 w-4" /> {ownerUnlocked ? "Proprietário ativo" : "Modo proprietário"}
+            </Button>
             <Button variant="outline" className="border-cyan-300/30 bg-cyan-300/5 text-cyan-200 hover:bg-cyan-300/10" onClick={() => void catalog.refetch()}>
               <RefreshCw className="mr-2 h-4 w-4" /> Atualizar
             </Button>
