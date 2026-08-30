@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { getRestManifest } from "../server/firebaseRest";
 
 function getServiceAccountConfigStatus() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -50,7 +51,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (url.startsWith("/api/catalog/manifest")) {
     try {
-      const { getRestManifest } = await import("../server/firebaseRest");
       return res.status(200).json(await getRestManifest());
     } catch (error) {
       const errorKind = classifyManifestError(error);
