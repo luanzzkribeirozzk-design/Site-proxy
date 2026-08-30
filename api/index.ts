@@ -1,4 +1,4 @@
-import { createHash, createSign } from "node:crypto";
+import { createHash, createSign, timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 type ServiceAccount = {
@@ -36,6 +36,22 @@ const fallbackItems: CatalogItem[] = Array.from({ length: 6 }, (_, index) => ({
 }));
 
 let accessToken: { value: string; expiresAt: number } | undefined;
+
+function ownerKeyMatches(provided: unknown) {
+  const configured = process.env.OWNER_PANEL_KEY;
+  if (typeof provided !== "string" || !configured) return false;
+  const left = Buffer.from(provided);
+  const right = Buffer.from(configured);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function requestBody(req: VercelRequest): Record<string, unknown> {
+  if (typeof req.body === "object" && req.body !== null) return req.body as Record<string, unknown>;
+  if (typeof req.body === "string") {
+    try { return JSON.parse(req.body) as Record<string, unknown>; } catch { return {}; }
+  }
+  return {};
+}
 
 function serviceAccount(): ServiceAccount {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -157,6 +173,10 @@ function errorKind(error: unknown) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const url = req.url ?? "/";
+  if (url.startsWith("/api/owner/verify")) {
+    const body = requestBody(req);
+    return res.status(200).json({ authorized: ownerKeyMatches(body.key) });
+  }
   if (url.startsWith("/api/health")) {
     let validJson = false;
     let projectMatches = false;
